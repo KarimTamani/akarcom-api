@@ -1,0 +1,290 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model business_accounts {
+  id                  Int                                 @id @default(autoincrement())
+  user_id             Int                                 @unique
+  cover_picture_url   String?                             @db.VarChar
+  agency_name         String                              @db.VarChar
+  registration_number String?                             @db.VarChar
+  business_address    String
+  created_at          DateTime?                           @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime?                           @updatedAt      @db.Timestamptz(6)
+  users               users                               @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  projects            projects[]
+}
+
+model favorites {
+  id          Int        @id @default(autoincrement())
+  user_id     Int
+  property_id Int
+  created_at  DateTime?  @default(now()) @db.Timestamptz(6)
+  properties  properties @relation(fields: [property_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users       users      @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model messages {
+  id                                Int         @id @default(autoincrement())
+  sender_id                         Int
+  receiver_id                       Int
+  property_id                       Int?
+  content                           String
+  sent_at                           DateTime?   @default(now()) @db.Timestamptz(6)
+  read_at                           DateTime?   @db.Timestamptz(6)
+  properties                        properties? @relation(fields: [property_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_messages_receiver_idTousers users       @relation("messages_receiver_idTousers", fields: [receiver_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_messages_sender_idTousers   users       @relation("messages_sender_idTousers", fields: [sender_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model notification_settings {
+  id       Int     @id @default(autoincrement())
+  messages Boolean @default(true)
+  ads      Boolean @default(true)
+  user_id  Int     @unique
+  users    users   @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model notifications {
+  id         Int                     @id @default(autoincrement())
+  content    String
+  user_id    Int
+  type       notifications_type_enum
+  created_at DateTime                @default(now()) @db.Timestamptz(6)
+  users      users                   @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model project_documents {
+  id             Int       @id @default(autoincrement())
+  project_id     Int
+  document_title String?
+  document_url   String
+  created_at     DateTime? @default(now()) @db.Timestamptz(6)
+  projects       projects  @relation(fields: [project_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model project_units {
+  id          Int        @id @default(autoincrement())
+  project_id  Int
+  num_unites  Int
+  created_at  DateTime?  @default(now()) @db.Timestamptz(6)
+  property_id Int
+  projects    projects   @relation(fields: [project_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  properties  properties @relation(fields: [property_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model project_videos {
+  id         Int       @id @default(autoincrement())
+  project_id Int
+  video_url  String
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+  projects   projects  @relation(fields: [project_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model projects {
+  id                Int                 @id @default(autoincrement())
+  developer_id      Int
+  title             String
+  description       String?
+  location          String?
+  start_date        DateTime?           @db.Date
+  completion_date   DateTime?           @db.Date
+  created_at        DateTime?           @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime?           @updatedAt      @db.Timestamptz(6)
+  project_documents project_documents[]
+  project_units     project_units[]
+  project_videos    project_videos[]
+  business_accounts business_accounts   @relation(fields: [developer_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model properties {
+  id                     Int                          @id @default(autoincrement())
+  user_id                Int
+  title                  String
+  description            String?
+  image_360_url          String?                      @db.VarChar
+  property_type_id       Int
+  status                 properties_status_enum?      @default(draft)
+  add_type               properties_add_type_enum?
+  rent_period            properties_rent_period_enum? @default(monthly)
+  price                  Decimal                      @db.Decimal(10, 2)
+  latitude               Decimal?                     @db.Decimal(9, 6)
+  longitude              Decimal?                     @db.Decimal(9, 6)
+  address                String?
+  city                   String?
+  postal_code            String?
+  area_sq_meters         Decimal?                     @db.Decimal(10, 2)
+  num_rooms              Int
+  bethrooms              Int
+  furnished              Boolean                      @default(true)
+  schools                Int?
+  mosques                Int?
+  ownership_book         Boolean?
+  created_at             DateTime?                    @default(now()) @db.Timestamptz(6)
+  updated_at             DateTime?                    @updatedAt      @db.Timestamptz(6)
+  favorites              favorites[]
+  messages               messages[]
+  project_units          project_units[]
+  property_types         property_types               @relation(fields: [property_type_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users                  users                        @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  property_images        property_images[]
+  property_property_tags property_property_tags[]
+}
+
+model property_images {
+  id          Int        @id @default(autoincrement())
+  property_id Int
+  image_url   String
+  created_at  DateTime?  @default(now()) @db.Timestamptz(6)
+  properties  properties @relation(fields: [property_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model property_property_tags {
+  property_id     Int
+  property_tag_id Int
+  properties      properties    @relation(fields: [property_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  property_tags   property_tags @relation(fields: [property_tag_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([property_id, property_tag_id])
+}
+
+model property_tags {
+  id                     Int                      @id @default(autoincrement())
+  name                   String                   @db.VarChar
+  user_id                Int?
+  is_approuved           Boolean                  @default(true)
+  property_property_tags property_property_tags[]
+  users                  users?                   @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model property_types {
+  id                   Int              @id @default(autoincrement())
+  name                 String           @db.VarChar
+  parent_id            Int?
+  properties           properties[]
+  property_types       property_types?  @relation("property_typesToproperty_types", fields: [parent_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  other_property_types property_types[] @relation("property_typesToproperty_types")
+}
+
+model social_media {
+  id        Int     @id @default(autoincrement())
+  facebook  String?
+  instagram String?
+  tiktok    String?
+  whatsapp    String?
+  user_id   Int     @unique
+  users     users   @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model subscription_plans {
+  id                 Int                  @id @default(autoincrement())
+  name               String               @db.VarChar
+  description        String?              @db.VarChar
+  price              Decimal              @db.Decimal(10, 2)
+  max_properties     Int?
+  features           Json?                @db.Json
+  created_at         DateTime?            @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime?            @updatedAt      @db.Timestamptz(6)
+  user_subscriptions user_subscriptions[]
+}
+
+model user_subscriptions {
+  id                 Int                            @id @default(autoincrement())
+  plan_id            Int
+  user_id            Int?
+  start_date         DateTime                       @db.Timestamptz(6)
+  end_date           DateTime                       @db.Timestamptz(6)
+  total_amount       Decimal?                       @db.Decimal(10, 2)
+  status             user_subscriptions_status_enum @default(active)
+  payment_details    String?
+  proof_of_payment   String
+  payment_method     payment_method_enum 
+  created_at         DateTime?                      @default(now()) @db.Timestamptz(6)
+  updated_at         DateTime?                      @updatedAt      @db.Timestamptz(6)
+  subscription_plans subscription_plans             @relation(fields: [plan_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users              users?                         @relation(fields: [user_id], references: [id], onUpdate: NoAction)
+}
+
+model users {
+  id                                   Int                    @id @default(autoincrement())
+  full_name                            String                 @db.VarChar
+  email                                String                 @unique @db.VarChar
+  picture_url                          String?                @db.VarChar
+  phone_number                         String?                @unique @db.VarChar
+  password_hash                        String                 @db.VarChar
+  user_type                            users_user_type_enum   @default(individual)
+  provider                             Provider               @default(password)
+  birthday                             DateTime?   // DATE NULL
+  gender                               Boolean? 
+  created_at                           DateTime?              @default(now()) @db.Timestamptz(6)
+  updated_at                           DateTime?              @updatedAt      @db.Timestamptz(6)
+  business_accounts                    business_accounts?
+  favorites                            favorites[]
+  messages_messages_receiver_idTousers messages[]             @relation("messages_receiver_idTousers")
+  messages_messages_sender_idTousers   messages[]             @relation("messages_sender_idTousers")
+  notification_settings                notification_settings?
+  notifications                        notifications[]
+  properties                           properties[]
+  property_tags                        property_tags[]
+  social_media                         social_media?
+  user_subscriptions                   user_subscriptions[]
+}
+
+ 
+
+enum notifications_type_enum {
+  messages
+  ads
+}
+
+enum properties_add_type_enum {
+  sale
+  rent
+  project_unit
+}
+
+enum properties_rent_period_enum {
+  monthly
+  yearly
+}
+
+enum properties_status_enum {
+  draft
+  published
+  closed
+  rejected
+}
+
+
+enum payment_method_enum {
+  baridimob 
+  bank_transfer 
+  e_payment
+}
+
+enum user_subscriptions_status_enum {
+  active
+  inactive
+  expired
+}
+
+enum users_user_type_enum {
+  individual
+  agency 
+  developer
+  admin
+  employee
+}
+
+
+enum Provider {
+  google_com   @map("google.com")
+  facebook_com @map("facebook.com")
+  password
+  anonymous
+}

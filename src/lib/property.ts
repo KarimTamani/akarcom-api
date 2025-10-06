@@ -1,0 +1,70 @@
+import { properties_add_type_enum, properties_rent_period_enum, properties_status_enum } from "@prisma/client";
+import z from "zod";
+
+
+
+
+
+const propertyTypeSchema = z.object({
+    name: z.string().min(1, "Property type name is required"),
+    parent_id: z.number().optional().nullable()
+});
+
+const propertyTypeUpdateSchema = z.object({
+    name: z.string().min(1, "Property type name is required"),
+});
+
+const propertyTagSchema = z.object({
+  id: z.number().optional(),
+  name: z.string().optional(),  
+});
+
+
+
+const propertyImageSchema = z.object({
+    id: z.number().optional(),
+    image_url: z.string().url()
+})
+
+const propertySchema = z.object({
+    title: z.string(),
+    description: z.string().nullable().optional(),
+    image_360_url: z.string().url().nullable().optional(),
+    property_type_id: z.number(),
+    status: z.enum(properties_status_enum).nullable().optional(), // adjust values to match your enum
+    add_type: z.enum(properties_add_type_enum).nullable().optional(), // adjust to your enum values
+    rent_period: z.enum(properties_rent_period_enum).default("monthly").nullable().optional(),
+    price: z.number().min(0, "Price must be positive"),
+    latitude: z.number().nullable().optional(),
+    longitude: z.number().nullable().optional(),
+    address: z.string().min(1, "Address is required"),
+    city: z.string().min(1, "City is required"),
+    postal_code: z.string().min(1, "Postal code is required"),
+    area_sq_meters: z.number().nullable().optional(),
+    num_rooms: z.number(),
+    bethrooms: z.number(),
+    furnished: z.boolean().default(true),
+    schools: z.number().nullable().optional(),
+    mosques: z.number().nullable().optional(),
+    ownership_book: z.boolean().nullable().optional(),
+    property_images: z.array(propertyImageSchema).min(1, "At least one tag is required"), 
+    property_tags : z.array(propertyTagSchema).optional().nullable()
+});
+
+
+const propertyUpdateSchema = propertySchema.partial() ; 
+
+export type PropertyTypeInput = z.infer<typeof propertyTypeSchema>;
+export type PropertyTypeUpdateInput = z.infer<typeof propertyTypeUpdateSchema>;
+
+export type PropertyInput = z.infer<typeof propertySchema>;
+export type PropertyUpdateInput = z.infer<typeof propertyUpdateSchema>;
+
+export type PropertyImageInput  = z.infer<typeof propertyImageSchema> ;
+export type PropertyTagInput = z.infer<typeof propertyTagSchema> 
+export {
+    propertyTypeSchema,
+    propertyTypeUpdateSchema,
+    propertySchema,
+    propertyUpdateSchema
+}
