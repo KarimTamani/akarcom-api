@@ -15,8 +15,8 @@ const propertyTypeUpdateSchema = z.object({
 });
 
 const propertyTagSchema = z.object({
-  id: z.number().optional(),
-  name: z.string().optional(),  
+    id: z.number().optional(),
+    name: z.string().optional(),
 });
 
 
@@ -26,6 +26,14 @@ const propertyImageSchema = z.object({
     image_url: z.string().url()
 })
 
+
+const projectUnitSchema = z.object({
+    id: z.number().optional(),
+    title: z.string().optional() ,
+    description: z.string().optional() ,
+    num_unites: z.number().min(1, "At least one property").optional(),
+
+})
 const propertySchema = z.object({
     title: z.string(),
     description: z.string().nullable().optional(),
@@ -41,18 +49,23 @@ const propertySchema = z.object({
     city: z.string().min(1, "City is required"),
     postal_code: z.string().min(1, "Postal code is required"),
     area_sq_meters: z.number().nullable().optional(),
-    num_rooms: z.number(),
-    bethrooms: z.number(),
+    num_rooms: z.number().optional().nullable(),
+    bethrooms: z.number().optional().nullable(),
     furnished: z.boolean().default(true),
     schools: z.number().nullable().optional(),
     mosques: z.number().nullable().optional(),
+    project_plan: z.string().url().optional().nullable(),
     ownership_book: z.boolean().nullable().optional(),
-    property_images: z.array(propertyImageSchema).min(1, "At least one tag is required"), 
-    property_tags : z.array(propertyTagSchema).optional().nullable()
+    property_images: z.array(propertyImageSchema).min(1, "At least one tag is required"),
+    property_tags: z.array(propertyTagSchema).optional().nullable(),
+    project_units: z.array(projectUnitSchema).optional().nullable(),
 });
 
 
-const propertyUpdateSchema = propertySchema.partial() ; 
+
+
+
+const propertyUpdateSchema = propertySchema.partial();
 
 export type PropertyTypeInput = z.infer<typeof propertyTypeSchema>;
 export type PropertyTypeUpdateInput = z.infer<typeof propertyTypeUpdateSchema>;
@@ -60,8 +73,8 @@ export type PropertyTypeUpdateInput = z.infer<typeof propertyTypeUpdateSchema>;
 export type PropertyInput = z.infer<typeof propertySchema>;
 export type PropertyUpdateInput = z.infer<typeof propertyUpdateSchema>;
 
-export type PropertyImageInput  = z.infer<typeof propertyImageSchema> ;
-export type PropertyTagInput = z.infer<typeof propertyTagSchema> 
+export type PropertyImageInput = z.infer<typeof propertyImageSchema>;
+export type PropertyTagInput = z.infer<typeof propertyTagSchema>
 export {
     propertyTypeSchema,
     propertyTypeUpdateSchema,

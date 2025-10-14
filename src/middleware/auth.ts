@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import config from '../config/config';
 import prisma from '../../prisma/prisma';
+import { User } from '../lib/user';
 
 
 interface JwtPayload {
@@ -13,7 +14,7 @@ interface JwtPayload {
 
 // Extend the Express Request type to include `user`
 export interface AuthenticatedRequest extends Request {
-  user?: JwtPayload;
+  user?: User;
 }
 
 export const authMiddleware = async (req: AuthenticatedRequest, res: Response, next: NextFunction) => {

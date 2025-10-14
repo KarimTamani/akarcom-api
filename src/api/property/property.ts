@@ -4,145 +4,173 @@
 import express, { Request, Response } from "express";
 import { PropertyImageInput, PropertyInput, propertySchema, PropertyTagInput, PropertyUpdateInput, propertyUpdateSchema } from "../../lib/property";
 import prisma from "../../../prisma/prisma";
+import { authMiddleware } from "../../middleware/auth";
+import { subscriptionMiddleware } from "../../middleware/subscription";
+import { SubscriptionFeatures } from "../../lib/subscription";
 
 const router = express.Router();
 
-router.post("/", async (request: Request<{}, {}, PropertyInput>, response: Response) => {
-    try {
+router.post("/",
+    authMiddleware as any,
+    subscriptionMiddleware(SubscriptionFeatures.properties) as any
+    , async (request: Request<{}, {}, PropertyInput>, response: Response) => {
+        try {
 
-        const result = propertySchema.safeParse(request.body);
-        if (!result.success) {
-            response.status(400).json(result); return;
-        }
+            const result = propertySchema.safeParse(request.body);
+            if (!result.success) {
+                response.status(400).json(result); return;
+            }
 
-        const { property_images, property_tags, ...propertInput } = result.data;
+            const { property_images, property_tags, project_units, ...propertInput } = result.data;
 
-        const createdProperty = await prisma.$transaction(async (tx) => {
+            const createdProperty = await prisma.$transaction(async (tx) => {
 
-            return await tx.properties.create({
-                data: {
-                    ...propertInput,
-                    user_id: (request as any).user.id as any,
-                    property_images: {
-                        create: property_images
-                    },
-                    property_property_tags: {
-                        create: property_tags.map((propertyTag: PropertyTagInput) => ({
-                            property_tags: propertyTag.id ? {
-                                connect: { id: propertyTag.id }
-                            } : {
-                                create: {
-                                    name: propertyTag.name,
-                                    user_id: (request as any).user.id as any
+                return await tx.properties.create({
+                    data: {
+                        ...propertInput,
+                        user_id: (request as any).user.id as any,
+                        property_images: {
+                            create: property_images
+                        },
+                        project_units: {
+                            create: project_units as any
+                        },
+                        property_property_tags: {
+                            create: property_tags.map((propertyTag: PropertyTagInput) => ({
+                                property_tags: propertyTag.id ? {
+                                    connect: { id: propertyTag.id }
+                                } : {
+                                    create: {
+                                        name: propertyTag.name,
+                                        user_id: (request as any).user.id as any
+                                    }
                                 }
+                            }))
+                        }
+                    },
+                    include: {
+                        property_images: true,
+                        property_property_tags: {
+                            include: {
+                                property_tags: true,
                             }
-                        }))
+                        },
+                        project_units: true,
                     }
-                },
+                })
+            })
+
+
+            response.status(200).json({ success: true, createdProperty });
+        } catch (error) {
+            response.status(500).json({ success: false, error });
+        }
+    });
+
+router.put("/:id",
+    authMiddleware as any,
+    subscriptionMiddleware(SubscriptionFeatures.properties) as any
+    , async (request: Request<{ id: string }, {}, PropertyUpdateInput>, response: Response) => {
+        try {
+
+            const id = Number(request.params.id);
+
+            if (isNaN(id)) {
+                response.status(400).json({ success: false, error: "Id is required" }); return;
+            }
+
+            const result = propertyUpdateSchema.safeParse(request.body);
+            if (!result.success) {
+                response.status(400).json(result); return;
+            }
+
+            const property = await prisma.properties.findUnique({
+                where: { id },
                 include: {
                     property_images: true,
                     property_property_tags: {
                         include: {
-                            property_tags: true,
+                            property_tags: true
                         }
-                    }
+                    },
+                    project_units: true
                 }
-            })
-        })
-
-
-        response.status(200).json({ success: true, createdProperty });
-    } catch (error) {
-        console.log(error)
-        response.status(500).json({ success: false, error });
-    }
-});
-
-router.put("/:id", async (request: Request<{ id: string }, {}, PropertyUpdateInput>, response: Response) => {
-    try {
-
-        const id = Number(request.params.id);
-
-        if (isNaN(id)) {
-            response.status(401).json({ success: false, error: "Id is required" }); return;
-        }
-
-        const result = propertyUpdateSchema.safeParse(request.body);
-        if (!result.success) {
-            response.status(401).json(result); return;
-        }
-
-        const property = await prisma.properties.findUnique({
-            where: { id },
-            include: {
-                property_images: true,
-                property_property_tags: {
-                    include: {
-                        property_tags: true
-                    }
-                }
-            }
-        });
-
-        if (!property) {
-            response.status(404).json({ success: false, error: "Property not found" }); return;
-        }
-
-        const { property_images, property_tags, ...propertyInput } = result.data;
-
-        const updatedProperty = await prisma.$transaction(async (tx) => {
-
-            const newImageIds = property_images.filter((img: PropertyImageInput) => img.id).map((img: PropertyImageInput) => img.id);
-            const imagesToDelete = property.property_images.filter((img) => !newImageIds.includes(img.id))
-
-            // remove images 
-            if (imagesToDelete.length > 0)
-                await tx.property_images.deleteMany({
-                    where: {
-                        id: {
-                            in: imagesToDelete.map((img) => img.id)
-                        }
-                    }
-                });
-            // ---- Handle Tags (M2M) ----
-            // Clear old tags first (simpler and consistent)
-            await tx.property_property_tags.deleteMany({
-                where: { property_id: id },
             });
 
-            // Recreate links (connect existing or create new)
-            const property_property_tags = property_tags.map(tag => ({
-                property_tags: tag.id
-                    ? { connect: { id: tag.id } }
-                    : { create: { name: tag.name, user_id: (request as any).user.id } },
-            }));
+            if (!property) {
+                response.status(404).json({ success: false, error: "Property not found" }); return;
+            }
 
-            return await tx.properties.update({
-                where: {
-                    id
-                },
-                data: {
-                    ...propertyInput,
-                    property_images: {
-                        create: property_images.filter((img) => !img.id).map((img) => ({ image_url: img.image_url }))
+            const { property_images, property_tags, project_units, ...propertyInput } = result.data;
+
+            const updatedProperty = await prisma.$transaction(async (tx) => {
+
+                const newImageIds = property_images.filter((img: PropertyImageInput) => img.id).map((img: PropertyImageInput) => img.id);
+                const imagesToDelete = property.property_images.filter((img) => !newImageIds.includes(img.id))
+                const updatedUnits = project_units.filter((unit) => unit.id);
+                const updatedUnitesIds = updatedUnits.map((unit) => unit.id)
+                const deletedUnites = property.project_units.filter((unit) => !updatedUnitesIds.includes(unit.id));
+
+                // remove images 
+                if (imagesToDelete.length > 0)
+                    await tx.property_images.deleteMany({
+                        where: {
+                            id: {
+                                in: imagesToDelete.map((img) => img.id)
+                            }
+                        }
+                    });
+
+
+                // ---- Handle Tags (M2M) ----
+                // Clear old tags first (simpler and consistent)
+                await tx.property_property_tags.deleteMany({
+                    where: { property_id: id },
+                });
+
+                // Recreate links (connect existing or create new)
+                const property_property_tags = property_tags.map(tag => ({
+                    property_tags: tag.id
+                        ? { connect: { id: tag.id } }
+                        : { create: { name: tag.name, user_id: (request as any).user.id } },
+                }));
+
+                return await tx.properties.update({
+                    where: {
+                        id
                     },
-                    property_property_tags: { create: property_property_tags },
-                },
-                include: {
-                    property_images: true,
-                    property_property_tags: {
-                        include: { property_tags: true },
+                    data: {
+                        ...propertyInput,
+                        property_images: {
+                            create: property_images.filter((img) => !img.id).map((img) => ({ image_url: img.image_url }))
+                        },
+                        property_property_tags: { create: property_property_tags },
+                        project_units: {
+                            update: updatedUnits.map((unit) => ({
+                                where: { id: unit.id },
+                                data: unit
+                            })),
+                            create: project_units.filter((unit) => !unit.id) as any,
+                            deleteMany: deletedUnites.map((unit) => ({ id: unit.id }))
+                        }
                     },
-                },
+                    include: {
+                        property_images: true,
+                        property_property_tags: {
+                            include: { property_tags: true },
+                        },
+                        project_units: true
+                    },
+                })
             })
-        })
 
-        response.status(200).json({ success: true, data: updatedProperty });
+            response.status(200).json({ success: true, data: updatedProperty });
 
-    } catch (error) {
-        response.status(500).json({ success: false, error });
-    }
-});
+        } catch (error) {
+            console.log(error);
+            response.status(500).json({ success: false, error });
+        }
+    });
 
 
 
@@ -165,7 +193,8 @@ router.get("/:id", async (request: Request, response: Response) => {
                     where: {
                         user_id: (request as any).user.id
                     },
-                }
+                } , 
+                project_units : true 
             }
         });
         if (!property) {
@@ -443,7 +472,7 @@ router.get("/", async (request: Request, response: Response) => {
 
 
             const count = Number(countResult[0]?.total || 0);
-            
+
             response.status(200).json({ success: true, count, data: properties }); return;
         }
     } catch (error) {
@@ -454,75 +483,81 @@ router.get("/", async (request: Request, response: Response) => {
 
 
 
-router.delete("/:id", async (request: Request, response: Response) => {
-    try {
-        const id = Number(request.params.id);
-
-        if (isNaN(id)) {
-            response.status(401).json({ success: false, error: "Id is required" }); return;
-        }
+router.delete("/:id",
+    authMiddleware as any,
+    subscriptionMiddleware(SubscriptionFeatures.properties) as any
+    , async (request: Request, response: Response) => {
         try {
-            await prisma.properties.delete({
-                where: {
-                    id,
-                    user_id: (request as any).user.id
-                }
-            })
-        } catch (error) {
-            response.status(404).json({ success: false, error: "Property not found" }); return;
-        }
-        response.status(201).json({ success: true, data: id }); return;
+            const id = Number(request.params.id);
 
-    } catch (error) {
-        response.status(500).json({ success: false, error });
-    }
-});
-
-
-
-router.put("/favorite/:id", async (request: Request<{ id: string }, {}, PropertyUpdateInput>, response: Response) => {
-    try {
-
-        const id = Number(request.params.id);
-
-        if (isNaN(id)) {
-            response.status(401).json({ success: false, error: "Id is required" }); return;
-        }
-        const property = await prisma.properties.findUnique({ where: { id } });
-
-        if (!property) {
-            response.status(404).json({ success: false, error: "Property not found" }); return;
-        }
-
-        let favorite = await prisma.favorites.findFirst({
-            where: {
-                property_id: id,
-                user_id: (request as any).user?.id
+            if (isNaN(id)) {
+                response.status(401).json({ success: false, error: "Id is required" }); return;
             }
-        });
+            try {
+                await prisma.properties.delete({
+                    where: {
+                        id,
+                        user_id: (request as any).user.id
+                    }
+                })
+            } catch (error) {
+                response.status(404).json({ success: false, error: "Property not found" }); return;
+            }
+            response.status(201).json({ success: true, data: id }); return;
 
-        if (!favorite) {
-            favorite = await prisma.favorites.create({
-                data: {
-                    property_id: id,
-                    user_id: (request as any).user?.id
-                }
-            });
+        } catch (error) {
+            response.status(500).json({ success: false, error });
         }
-        else {
-            await prisma.favorites.deleteMany({
+    });
+
+
+
+router.put("/favorite/:id",
+    authMiddleware as any,
+    subscriptionMiddleware(SubscriptionFeatures.favorite) as any
+    , async (request: Request<{ id: string }, {}, PropertyUpdateInput>, response: Response) => {
+        try {
+
+            const id = Number(request.params.id);
+
+            if (isNaN(id)) {
+                response.status(401).json({ success: false, error: "Id is required" }); return;
+            }
+            const property = await prisma.properties.findUnique({ where: { id } });
+
+            if (!property) {
+                response.status(404).json({ success: false, error: "Property not found" }); return;
+            }
+
+            let favorite = await prisma.favorites.findFirst({
                 where: {
                     property_id: id,
                     user_id: (request as any).user?.id
                 }
             });
-            favorite = null;
+
+            if (!favorite) {
+                favorite = await prisma.favorites.create({
+                    data: {
+                        property_id: id,
+                        user_id: (request as any).user?.id
+                    }
+                });
+            }
+            else {
+                await prisma.favorites.deleteMany({
+                    where: {
+                        property_id: id,
+                        user_id: (request as any).user?.id
+                    }
+                });
+                favorite = null;
+            }
+            response.status(200).json({ success: true, data: favorite });
+        } catch (error) {
+            response.status(500).json({ success: false, error });
         }
-        response.status(200).json({ success: true, data: favorite });
-    } catch (error) {
-        response.status(500).json({ success: false, error });
-    }
-});
+    });
 
 
 

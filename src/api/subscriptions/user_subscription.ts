@@ -4,7 +4,8 @@ import express, { Request, Response } from "express";
 import { UserSubscriptionInput, userSubscriptionSchema, UserSubscriptionUpdateInput, userSubscriptionUpdateSchema } from "../../lib/subscription";
 import prisma from "../../../prisma/prisma";
 import { addMonths } from "../../utils/time";
-import { payment_method_enum, user_subscriptions_status_enum } from "@prisma/client";
+import { payment_method_enum, user_subscriptions_status_enum, users_user_type_enum } from "@prisma/client";
+import { authorize } from "../../middleware/authorize";
 
 const router = express.Router();
 
@@ -33,7 +34,7 @@ router.post('/', async (request: Request<{}, {}, UserSubscriptionInput>, respons
                 ...data,
                 user_id: (request as any).user.id,
                 end_date: endDate,
-                status: user_subscriptions_status_enum.inactive
+                status: subscription_plan.price == 0 as any ? user_subscriptions_status_enum.active : user_subscriptions_status_enum.inactive
             }
         })
 
@@ -49,149 +50,151 @@ router.post('/', async (request: Request<{}, {}, UserSubscriptionInput>, respons
     }
 });
 
-router.put('/:id', async (request: Request<{ id: string }, {}, UserSubscriptionUpdateInput>, response: Response) => {
-    try {
-
-
-        const id = Number(request.params.id);
-        if (isNaN(id)) {
-            response.status(401).json({ success: false, error: "Id is required" }); return;
-        }
-
-        const result = userSubscriptionUpdateSchema.safeParse(request.body);
-
-        if (!result.success) {
-            response.status(401).json(result); return;
-        }
-
-        let userSubscription = await prisma.user_subscriptions.findUnique({ where: { id } })
-
-        if (!userSubscription) {
-            response.status(401).json({ success: false, error: "User subscription not found" }); return;
-        }
-
-        const { data } = result;
-
-        userSubscription = await prisma.user_subscriptions.update({
-            where: {
-                id
-            },
-            data
-        });
-
-        response.status(200).json({
-            sucess: true,
-            data: userSubscription
-        })
-
-
-    } catch (error) {
-        response.status(500).json({
-            success: false,
-            error
-        })
-    }
-});
-
-
-router.get('/', async (request: Request, response: Response) => {
-    try {
-        let {
-            query = "",
-            payment_method,
-            plan_id,
-            status,
-            start_date,
-            end_date,
-            offset = "0",
-            limit = "20",
-        } = request.query;
-
-        query = String(query).trim().split(" ").filter((str: string) => str != "").join(" ");
-
-        let filters = {};
-
-        if (payment_method && Object.values(payment_method_enum).includes(String(payment_method) as payment_method_enum))
-            filters = {
-                payment_method
+router.put('/:id',
+    authorize(users_user_type_enum.employee, users_user_type_enum.admin)
+    , async (request: Request<{ id: string }, {}, UserSubscriptionUpdateInput>, response: Response) => {
+        try {
+            const id = Number(request.params.id);
+            if (isNaN(id)) {
+                response.status(401).json({ success: false, error: "Id is required" }); return;
             }
 
-        if (plan_id)
-            filters = {
-                ...filters, plan_id: parseInt(String(plan_id))
+            const result = userSubscriptionUpdateSchema.safeParse(request.body);
+
+            if (!result.success) {
+                response.status(401).json(result); return;
             }
 
-        if (status && Object.values(user_subscriptions_status_enum).includes(String(status) as user_subscriptions_status_enum))
-            filters = {
-                ...filters,
-                status
+            let userSubscription = await prisma.user_subscriptions.findUnique({ where: { id } })
+
+            if (!userSubscription) {
+                response.status(401).json({ success: false, error: "User subscription not found" }); return;
             }
 
-        if (start_date) {
-            filters = {
-                ...filters,
-                start_date: {
-                    gte: new Date(start_date as string)
-                }
-            }
-        }
-        if (end_date) {
-            filters = {
-                ...filters,
-                end_date: {
-                    lte: new Date(end_date as string)
-                }
-            }
-        }
+            const { data } = result;
 
-        const [userSubscriptions, count] = await prisma.$transaction([
-
-            prisma.user_subscriptions.findMany({
+            userSubscription = await prisma.user_subscriptions.update({
                 where: {
-                    users: {
-                        OR: [
-                            { full_name: { contains: query, mode: "insensitive" } },
-                            { email: { contains: query, mode: "insensitive" } },
-                            { phone_number: { contains: query, mode: "insensitive" } },
-                        ]
-                    },
-                    ...filters
+                    id
                 },
-                skip: parseInt(offset as string),
-                take: parseInt(limit as string),
-                include: {
-                    users: true
+                data
+            });
+
+            response.status(200).json({
+                sucess: true,
+                data: userSubscription
+            })
+
+
+        } catch (error) {
+            response.status(500).json({
+                success: false,
+                error
+            })
+        }
+    });
+
+
+router.get('/',
+    authorize(users_user_type_enum.employee, users_user_type_enum.admin)
+    , async (request: Request, response: Response) => {
+        try {
+            let {
+                query = "",
+                payment_method,
+                plan_id,
+                status,
+                start_date,
+                end_date,
+                offset = "0",
+                limit = "20",
+            } = request.query;
+
+            query = String(query).trim().split(" ").filter((str: string) => str != "").join(" ");
+
+            let filters = {};
+
+            if (payment_method && Object.values(payment_method_enum).includes(String(payment_method) as payment_method_enum))
+                filters = {
+                    payment_method
                 }
-            }),
 
-            prisma.user_subscriptions.count({
-                where: {
-                    users: {
-                        OR: [
-                            { full_name: { contains: query, mode: "insensitive" } },
-                            { email: { contains: query, mode: "insensitive" } },
-                            { phone_number: { contains: query, mode: "insensitive" } },
-                        ]
+            if (plan_id)
+                filters = {
+                    ...filters, plan_id: parseInt(String(plan_id))
+                }
+
+            if (status && Object.values(user_subscriptions_status_enum).includes(String(status) as user_subscriptions_status_enum))
+                filters = {
+                    ...filters,
+                    status
+                }
+
+            if (start_date) {
+                filters = {
+                    ...filters,
+                    start_date: {
+                        gte: new Date(start_date as string)
+                    }
+                }
+            }
+            if (end_date) {
+                filters = {
+                    ...filters,
+                    end_date: {
+                        lte: new Date(end_date as string)
+                    }
+                }
+            }
+
+            const [userSubscriptions, count] = await prisma.$transaction([
+
+                prisma.user_subscriptions.findMany({
+                    where: {
+                        users: {
+                            OR: [
+                                { full_name: { contains: query, mode: "insensitive" } },
+                                { email: { contains: query, mode: "insensitive" } },
+                                { phone_number: { contains: query, mode: "insensitive" } },
+                            ]
+                        },
+                        ...filters
                     },
-                    ...filters
-                },
+                    skip: parseInt(offset as string),
+                    take: parseInt(limit as string),
+                    include: {
+                        users: true
+                    }
+                }),
 
-            }),
-        ])
-        response.status(200).json({
-            success: true,
-            count,
-            data: userSubscriptions
-        })
+                prisma.user_subscriptions.count({
+                    where: {
+                        users: {
+                            OR: [
+                                { full_name: { contains: query, mode: "insensitive" } },
+                                { email: { contains: query, mode: "insensitive" } },
+                                { phone_number: { contains: query, mode: "insensitive" } },
+                            ]
+                        },
+                        ...filters
+                    },
 
-    } catch (error) {
-        response.status(400).json({
-            success: false,
-            error
-        })
-    }
+                }),
+            ])
+            response.status(200).json({
+                success: true,
+                count,
+                data: userSubscriptions
+            })
 
-});
+        } catch (error) {
+            response.status(400).json({
+                success: false,
+                error
+            })
+        }
+
+    });
 
 
 
