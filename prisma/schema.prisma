@@ -153,7 +153,7 @@ model social_media {
   tiktok    String?
   whatsapp    String?
   user_id   Int     @unique
-  users     users   @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users     users   @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }
 
 model subscription_plans {

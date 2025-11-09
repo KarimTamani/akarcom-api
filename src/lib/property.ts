@@ -1,10 +1,6 @@
 import { properties_add_type_enum, properties_rent_period_enum, properties_status_enum } from "@prisma/client";
 import z from "zod";
 
-
-
-
-
 const propertyTypeSchema = z.object({
     name: z.string().min(1, "Property type name is required"),
     parent_id: z.number().optional().nullable()
@@ -19,13 +15,10 @@ const propertyTagSchema = z.object({
     name: z.string().optional(),
 });
 
-
-
 const propertyImageSchema = z.object({
     id: z.number().optional(),
     image_url: z.string().url()
 })
-
 
 const projectUnitSchema = z.object({
     id: z.number().optional(),

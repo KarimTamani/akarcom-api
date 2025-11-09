@@ -2,8 +2,9 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 interface Config {
+    url : string 
     port : number ; 
-    
+
     database : DatabaseConfig 
     JWT_SECRET: string ; 
     OAUTH_CLIENT_ID : string 
@@ -22,7 +23,7 @@ const config : Config = {
         type: process.env.DATABASE_TYPE || 'postgres',
         uri: process.env.DATABASE_URI
     },
-  
+    url : process.env.URL , 
     JWT_SECRET  : process.env.JWT_SECRET , 
     OAUTH_CLIENT_ID : process.env.OAUTH_CLIENT_ID
 };

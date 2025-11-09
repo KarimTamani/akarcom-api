@@ -4,6 +4,7 @@ import { compare, hash } from 'bcryptjs';
 import { createToken, generateRandomPassword } from '../../utils/jwt';
 import prisma from '../../../prisma/prisma';
 import { admin } from '../../utils/firebase';
+import { AuthenticatedRequest, authMiddleware } from '../../middleware/auth';
 
 
 const router = express.Router();
@@ -32,7 +33,7 @@ router.post("/signup", async (request: Request<{}, {}, UserSignUpInput>, respons
         }
 
         response.status(200).json({
-            success: true, 
+            success: true,
             data: authPayload
         });
         return;
@@ -63,7 +64,7 @@ router.post("/signin", async (request: Request<{}, {}, UserSignInInput>, respons
         })
 
         if (!user || ! await compare(result.data.password, user.password_hash)) {
-            response.status(403).send({
+            response.status(401).send({
                 success: false,
                 message: "wrong credentials"
             });
@@ -131,9 +132,9 @@ router.post('/oauth', async (request: Request<{}, {}, OAuth>, response: Response
             user: user,
             token
         }
-        
+
         response.status(200).send({
-            success: true, 
+            success: true,
             data: authPayload
         });
 
@@ -145,5 +146,37 @@ router.post('/oauth', async (request: Request<{}, {}, OAuth>, response: Response
         })
     }
 
-})
+});
+
+
+router.get("/me", authMiddleware as any , async (request: AuthenticatedRequest, response: Response) => {
+    try {
+
+        const user = await prisma.users.findUnique({
+            where : { 
+                id : request.user.id 
+            }, 
+            include : {
+                social_media : true , 
+                business_accounts: true , 
+                notification_settings : true 
+            }
+        })
+        
+        delete user.password_hash ; 
+    
+        response.status(200).json({
+            success : true , 
+            data : { 
+                user
+            }
+        })
+    } catch (error) {
+        response.status(500).json({
+            success: false,
+            error
+        })
+    }
+
+});
 export { router as authRouter };

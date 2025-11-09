@@ -1,6 +1,6 @@
 import express, { Request, Response } from 'express';
 import prisma from '../../../prisma/prisma';
-import { AuthPayload, EditUserInput, editUserSchema, ResetPasswordInput, resetPasswordSchema, User, UserType } from '../../lib/user';
+import { AuthPayload, CreateUserInput, createUserSchema, EditUserInput, editUserSchema, ResetPasswordInput, resetPasswordSchema, User, UserType } from '../../lib/user';
 import { compare, hash } from 'bcryptjs';
 import { createToken } from '../../utils/jwt';
 import { NotificationSettingInput, notificationSettingsSchema } from '../../lib/notifications';
@@ -86,30 +86,35 @@ router.get("/",
                         }
                     }]
                 },
-                skip: parseInt(offset as string),
-                take: parseInt(limit as string),
-
             }
-
-            if (user_type && !Object.values(UserType).includes(user_type as UserType)) {
-                response.status(400).json({
-                    success: false,
-                    message: "Bad user_type",
-                })
-                return;
-            }
-            else if (user_type) {
+            if (user_type) {
                 filters.where = {
-                    user_type: user_type as UserType,
+                    user_type: {
+                        in: JSON.parse(user_type as string)
+                    },
                     ...filters.where
                 }
             }
-            const users = await prisma.users.findMany(filters)
+            const [users, count] = await prisma.$transaction([
+                prisma.users.findMany({
+                    where: filters.where,
+                    skip: parseInt(offset as string),
+                    take: parseInt(limit as string),
+
+                    orderBy: {
+                        created_at: "desc"
+                    }
+                }),
+                prisma.users.count({
+                    where: filters.where
+                }),
+            ])
+
 
             response.status(200).json({
                 success: true,
+                count,
                 data: users
-
             })
         } catch (error) {
             response.status(400).json({
@@ -156,7 +161,7 @@ router.put("/", async (request: Request<{}, {}, EditUserInput>, response: Respon
                     data: social_media
                 })
             }
-            if (business_accounts && user.user_type == UserType.agency || user.user_type == UserType.developer)
+            if (business_accounts && user.user_type == UserType.agency || user.user_type == UserType.developer || user.user_type == UserType.admin)
                 if (!oldBusinessAccount) {
                     await tx.business_accounts.create({
                         data: {
@@ -196,6 +201,38 @@ router.put("/", async (request: Request<{}, {}, EditUserInput>, response: Respon
         })
     }
 })
+
+
+
+router.post("/", async (request: Request<{}, {}, CreateUserInput>, response: Response) => {
+    try {
+
+        const result = createUserSchema.safeParse(request.body);
+
+        if (!result.success) {
+            response.status(400).json(result); return;
+        }
+
+        const { password, confirm_password, ...userInput } = <any>result.data;
+        userInput.password_hash = await hash(password, 10);
+ 
+        // create the user 
+        const user: any = await prisma.users.create({ data: userInput });
+        delete user.password_hash
+
+
+        response.status(200).json({
+            success: true,
+            data: user
+        });
+        return;
+
+
+    } catch (errors) {
+        response.status(401).json({ errors });
+        return;
+    }
+});
 
 
 
@@ -285,7 +322,7 @@ router.put('/notification-settings', async (request: Request<{}, {}, Notificatio
         };
 
         response.status(200).send({
-            success: false,
+            success: true,
             data: updatedSetting
         });
         return;
@@ -297,6 +334,42 @@ router.put('/notification-settings', async (request: Request<{}, {}, Notificatio
             message: error,
         })
     }
+})
+
+
+router.delete("/:id", async (request: Request, response: Response) => {
+
+    try {
+
+        const id = Number(request.params.id);
+
+        if (isNaN(id)) {
+            response.status(400).json({
+                success: false,
+                message: "Id needs to be an integer",
+            });
+            return;
+        }
+        await prisma.users.delete({
+            where: {
+                id
+            }
+        });
+
+        response.status(200).json({
+            success: true,
+            data: {
+                id
+            }
+        })
+
+    } catch (error) {
+        response.status(400).json({
+            success: false,
+            message: error,
+        })
+    }
+
 })
 
 
