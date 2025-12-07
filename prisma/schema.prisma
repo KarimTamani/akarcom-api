@@ -69,7 +69,7 @@ model project_units {
   num_unites  Int
   created_at  DateTime?  @default(now()) @db.Timestamptz(6)
   property_id Int
-  properties  properties @relation(fields: [property_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  properties  properties @relation(fields: [property_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }
 
 
@@ -84,8 +84,10 @@ model properties {
   property_type_id       Int
   status                 properties_status_enum?      @default(draft)
   add_type               properties_add_type_enum?
+  condition              String?                      @db.VarChar
+  slug                   String                       @unique
   rent_period            properties_rent_period_enum? @default(monthly)
-  price                  Decimal                      @db.Decimal(10, 2)
+  price                  Decimal                      @db.Decimal(20, 0)
   latitude               Decimal?                     @db.Decimal(9, 6)
   longitude              Decimal?                     @db.Decimal(9, 6)
   address                String?
@@ -98,6 +100,7 @@ model properties {
   schools                Int?
   mosques                Int?
   ownership_book         Boolean?
+  views                  Int                          @default(0)
   project_plan           String?
   created_at             DateTime?                    @default(now()) @db.Timestamptz(6)
   updated_at             DateTime?                    @updatedAt      @db.Timestamptz(6)
@@ -140,6 +143,8 @@ model property_tags {
 model property_types {
   id                   Int              @id @default(autoincrement())
   name                 String           @db.VarChar
+  name_fr              String           @db.VarChar
+  name_ar              String           @db.VarChar
   parent_id            Int?
   properties           properties[]
   property_types       property_types?  @relation("property_typesToproperty_types", fields: [parent_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
@@ -177,8 +182,8 @@ model user_subscriptions {
   total_amount       Decimal?                       @db.Decimal(10, 2)
   status             user_subscriptions_status_enum @default(active)
   payment_details    String?
-  proof_of_payment   String
-  payment_method     payment_method_enum 
+  proof_of_payment   String?
+  payment_method     payment_method_enum? 
   created_at         DateTime?                      @default(now()) @db.Timestamptz(6)
   updated_at         DateTime?                      @updatedAt      @db.Timestamptz(6)
   subscription_plans subscription_plans             @relation(fields: [plan_id], references: [id], onDelete: NoAction, onUpdate: NoAction)

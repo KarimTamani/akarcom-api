@@ -22,6 +22,7 @@ export const authMiddleware = async (req: AuthenticatedRequest, res: Response, n
 
   // 1. Check for Bearer token
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
+   
     return res.status(401).json({ error: 'Authorization token missing or invalid' });
   }
 

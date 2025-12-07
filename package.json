@@ -26,6 +26,8 @@
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.0.2",
     "node-cron": "^4.2.1",
+    "node-unrar": "^0.1.6",
+    "slugify": "^1.6.6",
     "socket.io": "^4.8.1",
     "unzipper": "^0.12.3",
     "zod": "^4.1.11"

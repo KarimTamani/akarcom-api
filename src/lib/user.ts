@@ -65,6 +65,7 @@ const editUserSchema = z.object({
     phone_number: z.string().optional(),
     birthday: z.string().optional(),
     gender: z.boolean().optional(),
+    user_type: z.enum(["individual", "agency", "developer"]).optional(),
     social_media: socialMediaSchema.optional(),
     business_accounts: businessAccountSchema.optional(),
 })

@@ -3,6 +3,7 @@ import { AuthenticatedRequest } from "./auth";
 import prisma from "../../prisma/prisma";
 import { user_subscriptions_status_enum, users_user_type_enum } from "@prisma/client";
 import { SubscriptionFeatures } from "../lib/subscription";
+import { addMonths } from "../utils/time";
 
 
 
@@ -14,7 +15,7 @@ export function subscriptionMiddleware(...accessFeatures) {
             next();
             return;
         }
-        const user_subscription = await prisma.user_subscriptions.findFirst({
+        let user_subscription = await prisma.user_subscriptions.findFirst({
             where: {
                 user_id: user.id as any,
                 status: user_subscriptions_status_enum.active
@@ -23,12 +24,34 @@ export function subscriptionMiddleware(...accessFeatures) {
                 created_at: "desc"
             }
         })
-
+        let subscription_plan: any | undefined;
         if (!user_subscription) {
-            return res.status(403).json({ error: 'Anauthorized no subscription found' });
-        }
 
-        const subscription_plan = await prisma.subscription_plans.findUnique({ where: { id: user_subscription.plan_id } });
+            subscription_plan = await prisma.subscription_plans.findFirst({
+                where: {
+                    price: 0
+                }
+            });
+
+            if (!subscription_plan)
+                return res.status(403).json({ error: 'Anauthorized no subscription found' });
+
+            const endDate = addMonths(new Date(), 1);
+            user_subscription = await prisma.user_subscriptions.create({
+                data: {
+
+                    user_id: (req as any).user.id,
+                    end_date: endDate,
+                    start_date: new Date(),
+                    plan_id: subscription_plan.id,
+                    status: user_subscriptions_status_enum.active , 
+                    proof_of_payment : ""
+                } as any
+            }) 
+
+        }
+        else
+            subscription_plan = await prisma.subscription_plans.findUnique({ where: { id: user_subscription.plan_id } });
 
         if (Number(subscription_plan.price) != 0) {
             const currentDate = new Date();

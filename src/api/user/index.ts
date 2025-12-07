@@ -139,6 +139,7 @@ router.put("/", async (request: Request<{}, {}, EditUserInput>, response: Respon
             return;
         }
 
+
         const user: User = (request as any).user
         const { social_media, business_accounts, ...userToUpdate } = result.data
 
@@ -146,6 +147,8 @@ router.put("/", async (request: Request<{}, {}, EditUserInput>, response: Respon
         const oldBusinessAccount = await prisma.business_accounts.findUnique({ where: { user_id: user.id } });
 
         const updatedUser = await prisma.$transaction(async (tx) => {
+
+
             if (!oldSocialMedia && social_media) {
                 await tx.social_media.create({
                     data: {
@@ -154,6 +157,7 @@ router.put("/", async (request: Request<{}, {}, EditUserInput>, response: Respon
                     }
                 })
             } else if (social_media) {
+
                 await tx.social_media.update({
                     where: {
                         id: oldSocialMedia.id
@@ -161,8 +165,11 @@ router.put("/", async (request: Request<{}, {}, EditUserInput>, response: Respon
                     data: social_media
                 })
             }
-            if (business_accounts && user.user_type == UserType.agency || user.user_type == UserType.developer || user.user_type == UserType.admin)
-                if (!oldBusinessAccount) {
+
+            if (business_accounts && (user.user_type == UserType.agency || user.user_type == UserType.developer || user.user_type == UserType.admin)) {
+                    
+                if (!oldBusinessAccount) { 
+                    
                     await tx.business_accounts.create({
                         data: {
                             user_id: user.id,
@@ -177,6 +184,9 @@ router.put("/", async (request: Request<{}, {}, EditUserInput>, response: Respon
                         data: business_accounts
                     })
                 }
+            }
+
+
             const updatedUser = await tx.users.update({
                 where: {
                     id: user.id
@@ -215,7 +225,7 @@ router.post("/", async (request: Request<{}, {}, CreateUserInput>, response: Res
 
         const { password, confirm_password, ...userInput } = <any>result.data;
         userInput.password_hash = await hash(password, 10);
- 
+
         // create the user 
         const user: any = await prisma.users.create({ data: userInput });
         delete user.password_hash

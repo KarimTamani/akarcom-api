@@ -17,7 +17,7 @@ const router: Router = express.Router();
 
 router.use("/auth", authRouter);
 router.use("/users", authMiddleware as any, userRouter);
-router.use("/", authMiddleware as any, subscriptionRouter);
+router.use("/subscription", authMiddleware as any, subscriptionRouter);
 router.use("/property", propertiesRouter);
 router.use("/chat", authMiddleware as any, subscriptionMiddleware(SubscriptionFeatures.chat) as any, chatRouter);
 router.use("/ticket", authMiddleware as any, ticketRouter);

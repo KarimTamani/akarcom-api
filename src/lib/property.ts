@@ -32,6 +32,7 @@ const propertySchema = z.object({
     description: z.string().nullable().optional(),
     image_360_url: z.string().url().nullable().optional(),
     property_type_id: z.number(),
+    condition : z.enum(["1" , "2" , "3" , '4' , "5"]).optional().default("3") , 
     status: z.enum(properties_status_enum).nullable().optional(), // adjust values to match your enum
     add_type: z.enum(properties_add_type_enum).nullable().optional(), // adjust to your enum values
     rent_period: z.enum(properties_rent_period_enum).default("monthly").nullable().optional(),
@@ -49,7 +50,7 @@ const propertySchema = z.object({
     mosques: z.number().nullable().optional(),
     project_plan: z.string().url().optional().nullable(),
     ownership_book: z.boolean().nullable().optional(),
-    property_images: z.array(propertyImageSchema).min(1, "At least one tag is required"),
+    property_images: z.array(propertyImageSchema).min(0, "At least one tag is required"),
     property_tags: z.array(propertyTagSchema).optional().nullable(),
     project_units: z.array(projectUnitSchema).optional().nullable(),
 });
@@ -60,14 +61,20 @@ const propertySchema = z.object({
 
 const propertyUpdateSchema = propertySchema.partial();
 
-export type PropertyTypeInput = z.infer<typeof propertyTypeSchema>;
+export type PropertyTypeInput = z.infer<typeof propertyTypeSchema> 
 export type PropertyTypeUpdateInput = z.infer<typeof propertyTypeUpdateSchema>;
 
-export type PropertyInput = z.infer<typeof propertySchema>;
-export type PropertyUpdateInput = z.infer<typeof propertyUpdateSchema>;
+export type PropertyInput = z.infer<typeof propertySchema>& {
+    slug : string   
+};;
+export type PropertyUpdateInput = z.infer<typeof propertyUpdateSchema>& {
+    slug : string   
+};;
 
 export type PropertyImageInput = z.infer<typeof propertyImageSchema>;
 export type PropertyTagInput = z.infer<typeof propertyTagSchema>
+
+export type ProjectUnitType = z.infer<typeof projectUnitSchema> ; 
 export {
     propertyTypeSchema,
     propertyTypeUpdateSchema,

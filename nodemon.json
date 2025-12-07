@@ -1,0 +1,4 @@
+{
+  "watch": ["src"],
+  "ignore": ["uploads/virtual_tours/**/*"]
+}
