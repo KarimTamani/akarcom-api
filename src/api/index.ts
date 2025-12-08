@@ -10,6 +10,7 @@ import { subscriptionMiddleware } from '../middleware/subscription';
 import { SubscriptionFeatures } from '../lib/subscription';
 import  uplaodRouter  from './upload';
 import  virtualTourUploader  from './upload/virtual-tour-uploader';
+import { analyticsRouter } from './analytics';
 
 const router: Router = express.Router();
 
@@ -23,4 +24,5 @@ router.use("/chat", authMiddleware as any, subscriptionMiddleware(SubscriptionFe
 router.use("/ticket", authMiddleware as any, ticketRouter);
 router.use("/upload" , uplaodRouter )
 router.use("/upload/virtual-tour" , virtualTourUploader )
+router.use("/analytics", authMiddleware as any, analyticsRouter);
 export { router as apiRouter }

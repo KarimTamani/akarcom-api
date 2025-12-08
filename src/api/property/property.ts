@@ -17,12 +17,10 @@ router.post("/",
     subscriptionMiddleware(SubscriptionFeatures.properties) as any
     , async (request: Request<{}, {}, PropertyInput>, response: Response) => {
         try {
-
             const result = propertySchema.safeParse(request.body);
             if (!result.success) {
                 response.status(400).json(result); return;
             }
-
             const { property_images, property_tags, project_units, ...propertInput } = result.data;
             (propertInput as PropertyInput).slug = slugify(propertInput.title, { lower: true, strict: true });
             const createdProperty = await prisma.$transaction(async (tx) => {
@@ -65,7 +63,7 @@ router.post("/",
 
             response.status(200).json({ success: true, createdProperty });
         } catch (error) {
-            console.log (error)
+            console.log(error)
             response.status(500).json({ success: false, error });
         }
     });
@@ -192,22 +190,22 @@ router.get("/area", async (request: Request, response: Response) => {
         response.status(200).json({
             success: true,
             data: {
-                min_area: Number ( result._min.area_sq_meters) ,
-                max_area: Number ( result._max.area_sq_meters),
+                min_area: Number(result._min.area_sq_meters),
+                max_area: Number(result._max.area_sq_meters),
             }
-        }) ; 
-        
+        });
+
     } catch (error) {
         response.status(500).json({ success: false, error })
     }
 })
 
 
-router.get("/slug/:slug" , UserMiddleware as any , async (request: Request, response: Response) => {
+router.get("/slug/:slug", UserMiddleware as any, async (request: Request, response: Response) => {
     try {
         const slug = request.params.slug;
-        
-        
+
+
         if (!slug) {
             response.status(401).json({ success: false, error: "Slug is required" }); return;
         }
@@ -221,15 +219,15 @@ router.get("/slug/:slug" , UserMiddleware as any , async (request: Request, resp
                 property_property_tags: {
                     include: { property_tags: true },
                 },
-                
+
                 favorites: {
                     where: {
                         user_id: (request as any).user?.id
                     },
                 },
-                users : {
-                    include : { social_media : true }
-                } , 
+                users: {
+                    include: { social_media: true }
+                },
                 project_units: true
             }
         });
@@ -239,13 +237,13 @@ router.get("/slug/:slug" , UserMiddleware as any , async (request: Request, resp
         response.status(200).json({ success: true, data: property });
 
     } catch (error) {
-        console.log (error)
+        console.log(error)
         response.status(500).json({ success: false, error });
     }
 });
 
 
-router.get("/:id" ,  UserMiddleware as any , async (request: Request, response: Response) => {
+router.get("/:id", UserMiddleware as any, async (request: Request, response: Response) => {
     try {
         const id = Number(request.params.id);
 
@@ -280,7 +278,7 @@ router.get("/:id" ,  UserMiddleware as any , async (request: Request, response: 
 });
 
 
-router.get("/" ,  UserMiddleware as any , async (request: Request, response: Response) => {
+router.get("/", UserMiddleware as any, async (request: Request, response: Response) => {
     try {
 
         let {
@@ -504,8 +502,6 @@ router.get("/" ,  UserMiddleware as any , async (request: Request, response: Res
 
             // ad type
             if (ad_type?.length) {
-
-
                 conditions.push(`p.add_type = ANY(${params.push(ad_type as string) && `$${params.length}`}::properties_add_type_enum[]) `)
             }
 
@@ -527,11 +523,9 @@ router.get("/" ,  UserMiddleware as any , async (request: Request, response: Res
             if (favorite === "true" && (request as any).user?.id) {
                 conditions.push(`EXISTS (SELECT 1 FROM favorites f WHERE f.property_id = p.id AND f.user_id = ${params.push((request as any).user?.id) && `$${params.length}`})`)
             }
-
             if (status) {
                 conditions.push(`p.status = '${status}'`)
             }
-
             // combine all
             const whereClause =
                 conditions.length > 0
@@ -575,7 +569,7 @@ router.get("/" ,  UserMiddleware as any , async (request: Request, response: Res
 
             response.status(200).json({ success: true, count, data: properties }); return;
         }
-    } catch (error) { 
+    } catch (error) {
         response.status(500).json({ success: false, error });
     }
 });
@@ -658,6 +652,36 @@ router.put("/favorite/:id",
         }
     });
 
+
+
+router.put("/view/:id", async (request: Request, response: Response) => {
+    try {
+
+
+        const id = Number(request.params.id);
+
+        if (isNaN(id)) {
+            response.status(401).json({ success: false, error: "Id is required" }); return;
+        }
+        const property = await prisma.properties.findUnique({ where: { id } });
+
+        if (!property) {
+            response.status(404).json({ success: false, error: "Property not found" }); return;
+        }
+
+        const updatedProperty = await prisma.properties.update({
+            where: {
+                id
+            },
+            data: {
+                views: property.views + 1
+            }
+        });
+        response.status(200).json({ success: true, data: updatedProperty });
+    } catch (error) {
+        response.status(500).json({ success: false, error });
+    }
+})
 
 
 export {

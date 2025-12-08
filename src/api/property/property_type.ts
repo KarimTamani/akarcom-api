@@ -80,7 +80,7 @@ router.get("/", async (request: Request, response: Response) => {
                 other_property_types: true
             },
             orderBy: {
-                id: "desc"
+                id: "asc"
             }
         })
         response.status(200).json({ success: true, data: types })
