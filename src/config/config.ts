@@ -15,8 +15,6 @@ interface DatabaseConfig {
     uri : string ; 
 }
 
- 
-
 const config : Config = {
     port: process.env.PORT ? parseInt(process.env.PORT) : 6060,
     database: {

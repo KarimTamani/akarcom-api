@@ -9,6 +9,7 @@ import { subscriptionMiddleware } from "../../middleware/subscription";
 import { SubscriptionFeatures } from "../../lib/subscription";
 import slugify from "slugify";
 import { UserMiddleware } from "../../middleware/user-middleware";
+import { toLocalISODate } from "../../utils/time";
 
 const router = express.Router();
 
@@ -677,8 +678,30 @@ router.put("/view/:id", async (request: Request, response: Response) => {
                 views: property.views + 1
             }
         });
-        response.status(200).json({ success: true, data: updatedProperty });
+
+        const currentDate = toLocalISODate(new Date());
+
+ 
+        await prisma.property_views.upsert({
+            where: {
+                property_id_date: {
+                    property_id: property.id ,
+                    date: currentDate
+                }
+            },
+            update: {
+                count: { increment: 1 }
+            },
+            create: {
+                property_id: property.id,
+                date: currentDate,
+                count: 1
+            }
+        });
+        //const today_views = await prisma.pr
+        response.status(200).json({ success: true, data: {id : property.id , views : updatedProperty.views} });
     } catch (error) {
+        console.log(error)
         response.status(500).json({ success: false, error });
     }
 })

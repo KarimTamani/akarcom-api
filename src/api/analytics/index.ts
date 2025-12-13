@@ -4,8 +4,9 @@ import prisma from '../../../prisma/prisma';
 import { properties_status_enum } from '@prisma/client';
 import { AuthenticatedRequest } from '../../middleware/auth';
 import { User, UserType } from '../../lib/user';
+import { toLocalISODate } from '../../utils/time';
 
-
+const DAY = 24 * 60 * 60 * 1000;
 const router = express.Router();
 
 function isValidDate(value: any): boolean {
@@ -33,12 +34,13 @@ router.get('/', async (request: AuthenticatedRequest, response: Response) => {
             startDate = new Date(start_date as string)
         }
 
+
         if (end_date && !isValidDate(end_date)) {
             response.status(400).json({ success: false, message: "Start date is not valid date" });
             return
         }
         else if (end_date) {
-            endDate = new Date(end_date as string)
+            endDate = new Date(new Date(end_date as string).getTime() + DAY)
         }
         const isUser = user.user_type == UserType.individual || user.user_type == UserType.agency || user.user_type == UserType.developer;
         const stats = await prisma.$transaction(async (tx) => {
@@ -52,13 +54,14 @@ router.get('/', async (request: AuthenticatedRequest, response: Response) => {
             }
             if (endDate) {
                 currentFilter = {
+                    ...currentFilter,
                     lte: endDate
                 }
             };
 
             if (startDate && endDate) {
                 // difference in milliseconds
-                const diff = startDate.getTime() - endDate.getTime();
+                const diff = endDate.getTime() - startDate.getTime();
 
                 // previous period
                 const prevStart = new Date(startDate.getTime() - diff);
@@ -99,6 +102,7 @@ router.get('/', async (request: AuthenticatedRequest, response: Response) => {
                         created_at: previousFilter
                     }
                 });
+
             }
 
 
@@ -123,10 +127,12 @@ router.get('/', async (request: AuthenticatedRequest, response: Response) => {
             let new_properties = undefined;
 
             if (!isUser) {
-
                 const grouped = await tx.properties.groupBy({
                     by: ['property_type_id'],
                     _count: { id: true },
+                    where: {
+                        created_at: currentFilter
+                    }
                 });
 
                 const types = await tx.property_types.findMany({});
@@ -178,7 +184,7 @@ router.get('/general', async (request: AuthenticatedRequest, response: Response)
         startDate = new Date(start_date as string)
         endDate = new Date(end_date as string)
 
-        const diff = startDate.getTime() - endDate.getTime();
+        const diff = endDate.getTime() - startDate.getTime();
 
         // previous period
         const prevStart = new Date(startDate.getTime() - diff);
@@ -190,6 +196,14 @@ router.get('/general', async (request: AuthenticatedRequest, response: Response)
                     created_at: {
                         gt: startDate,
                         lte: endDate
+                    }
+                }
+            });
+            const previous_user_count = await tx.users.count({
+                where: {
+                    created_at: {
+                        gt: prevStart,
+                        lte: prevEnd
                     }
                 }
             });
@@ -220,6 +234,44 @@ router.get('/general', async (request: AuthenticatedRequest, response: Response)
                 }
             })
 
+            const currnet_views = await tx.property_views.findMany({
+                where: {
+                    property: {
+                        user_id: user.id
+                    },
+                    date: {
+                        gt: toLocalISODate(startDate),
+                        lte: toLocalISODate(endDate)
+                    }
+                },
+
+                select: {
+                    date: true,
+                    count: true,
+                }
+            });
+
+            const previous_views = await tx.property_views.findMany({
+                where: {
+                    property: {
+                        user_id: user.id
+                    },
+                    date: {
+                        gt: toLocalISODate(prevStart),
+                        lte: toLocalISODate(prevEnd)
+                    }
+                },
+
+                select: {
+                    date: true,
+                    count: true,
+                }
+            })
+
+            console.log(toLocalISODate(prevStart),
+                toLocalISODate(prevEnd))
+
+
             const current_subscriptions = await tx.user_subscriptions.findMany({
                 where: {
                     created_at: {
@@ -232,7 +284,6 @@ router.get('/general', async (request: AuthenticatedRequest, response: Response)
                     total_amount: true,
                 }
             })
-
 
             const previous_subscriptions = await tx.user_subscriptions.findMany({
                 where: {
@@ -250,9 +301,12 @@ router.get('/general', async (request: AuthenticatedRequest, response: Response)
             return {
                 user_count,
                 current_properties,
-                previous_properties, 
-                current_subscriptions , 
-                previous_subscriptions
+                previous_properties,
+                currnet_views,
+                previous_views,
+                current_subscriptions,
+                previous_subscriptions, 
+                previous_user_count
             }
         });
         response.status(200).json({ success: true, data: stats });
